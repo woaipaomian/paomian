@@ -6,7 +6,7 @@
 <head>
   <!-- 声明字符编码为 UTF-8，防止中文乱码 -->
   <meta charset="UTF-8">
-  <title>DeepSeek 对话</title>
+  <title>DeepSeek 对话测试</title>
   <!-- 标题显示在浏览器标签页上 -->
 
 
@@ -16,24 +16,69 @@
       max-width: 800px;      /* 内容区最宽 800px，避免大屏上拉得太长 */
       margin: 30px auto;     /* 上下留 30px，水平居中 */
       font-family: sans-serif;
+      color: #333;
+      background-color: beige;
     }
 
     #log {
       /* 对话记录显示区 */
-      white-space: pre-wrap;      /* 保留换行和空格（textContent 里的 \n 会正常换行显示） */
       border: 1px solid #ccc;     /* 浅灰色边框 */
       padding: 16px;              /* 内边距，让文字不贴边 */
-      min-height: 200px;          /* 最小高度 200px，没内容时也不至于太扁 */
+      min-height: 400px;          /* 最小高度 200px，没内容时也不至于太扁 */
+      border-radius: 4px;
+      font-size: 14px;
+      overflow-y: auto;           /* 内容超出高度时出现滚动条 */
+      height: 85vh;
+      background-color: #ffffff;      
+    }
+    
+    /* ---------- 聊天气泡样式 ---------- */
+    .msg {
+      display: flex;
+      flex-direction: column;     /* 纵向排列：时间和气泡上下两行 */
+      align-items: flex-end;      /* 用户消息：整体靠右对齐 */
+      margin: 10px 0;             /* 每条消息之间的间距 */
+    }
+    .msg.ai {
+      align-items: flex-start;    /* AI 消息：靠左对齐 */
+    }
+    .bubble {
+      max-width: 70%;             /* 气泡最宽 70%，超出自动换行 */
+      padding: 8px 12px;          /* 气泡内边距 */
+      border-radius: 10px;        /* 圆角，气泡感 */
+      white-space: pre-wrap;      /* 保留换行和空格 */
+      word-break: break-word;     /* 长单词/长链接强制换行 */
+    }
+    .msg.user .bubble {
+      background-color: #cce5ff;  /* 用户气泡：浅蓝色 */
+      color: #004085;             /* 深蓝色文字 */
+    }
+    .msg.ai .bubble {
+      background-color: #f1f1f1;  /* AI 气泡：浅灰色 */
+      color: #333;
+    }
+    .time {
+      font-size: 12px;            /* 时间小一号 */
+      color: #999;                /* 灰色 */
+      margin-bottom: 3px;         /* 和下方气泡留一点距离 */
     }
     #input {
       /* 输入框 */
       width: 70%;       /* 占一行宽度的 70%，右边留给按钮 */
-      height: 32px;
+      height: 30px;
+      padding: 0 16px;
+      border-radius: 4px;
+      border: 1px solid #ccc; 
     }
     button {
       /* 发送按钮 */
       margin-left: 16px;  /* 和输入框之间留出间距 */
       height: 32px;
+      padding: 0 16px;
+      border-radius: 4px;
+      color: #fdfdfd;
+      border: 1px solid #0f76d6; 
+      background-color: rgb(77, 181, 241);
     }
   </style>
 </head>                                      
@@ -41,14 +86,19 @@
 
 
 <body>
-  <!-- 对话记录显示区：每次对话的"我: xxx / AI: xxx"都会追加到这里 -->
+    <!-- 对话记录显示区：对话会以气泡形式追加到这里 -->
   <div id="log"></div>
-
-  <!-- 用户输入框：placeholder 是没输入内容时显示的灰色提示文字 -->
+ <br>
+   <!-- 用户输入框：placeholder 是没输入内容时显示的灰色提示文字 -->
   <input id="input" style="width: 70%" placeholder="输入内容...">
 
   <!-- 发送按钮：点击时调用下方 script 里定义的 send() 函数 -->
   <button onclick="send()">发送</button>
+ 
+
+ 
+
+ 
 
 
 
@@ -61,25 +111,64 @@
     const messages = [];           // 保存对话历史（发给后端）
 
     /**
+     * 获取当前时间的字符串，格式 HH:MM:SS（24 小时制）
+     */
+    function nowTime() {
+      return new Date().toLocaleTimeString("zh-CN", { hour12: false });
+    }
+
+    /**
+     * 在对话区追加一条气泡消息
+     * @param {string} role  - "user"（右对齐蓝色气泡）或 "ai"（左对齐灰色气泡）
+     * @param {string} text  - 消息内容
+     * @param {string} time  - 显示的时间字符串
+     * @returns {HTMLElement} 气泡元素（AI 的"思考中..."占位要用它来更新文字）
+     */
+    function addBubble(role, text, time) {
+      const log = document.getElementById("log");
+
+      // 外层容器：负责左右对齐
+      const row = document.createElement("div");
+      row.className = "msg " + role;
+
+      // 时间标签：单独一行，显示在气泡上方
+      const timeEl = document.createElement("span");
+      timeEl.className = "time";
+      timeEl.textContent = time;
+
+      // 气泡本体
+      const bubble = document.createElement("div");
+      bubble.className = "bubble";
+      bubble.textContent = text;
+
+      // 时间在上、气泡在下（对齐方向由 CSS 的 align-items 控制）
+      row.appendChild(timeEl);
+      row.appendChild(bubble);
+
+      log.appendChild(row);
+      log.scrollTop = log.scrollHeight; // 自动滚动到底部，看到最新消息
+      return bubble;
+    }
+
+    /**
      * 发送消息的主函数
      * 由"发送"按钮的 onclick 和输入框的回车键触发
      */
     async function send() {
-      // 获取页面上的输入框和对话显示区
+      // 获取页面上的输入框
       const input = document.getElementById("input");
-      const log = document.getElementById("log");
 
       // 取出输入内容并去掉首尾空格
       const text = input.value.trim();
       if (!text) return;      // 空内容直接返回，不发请求
       input.value = "";       // 清空输入框，方便继续输入
 
-      // 1. 把用户的话显示到对话区，并加入历史数组
-      log.textContent += "我: " + text + "\n";
+      // 1. 把用户的话以"蓝色右对齐气泡 + 时间"显示，并加入历史数组
+      addBubble("user", text, nowTime());
       messages.push({ role: "user", content: text });
 
-      // 2. 先显示"思考中..."占位，等 AI 回来再替换掉
-      log.textContent += "AI: 思考中...\n";
+      // 2. 先显示"思考中..."占位气泡，等 AI 回来再更新它的文字
+      const pending = addBubble("ai", "思考中...", nowTime());
 
       try {
         // 3. 把输入和历史发给本地后端 server.js（后端再转发给 DeepSeek）
@@ -93,22 +182,45 @@
 
         // 4. 解析后端返回的 JSON，格式为 { reply: "AI 回复" } 或 { error: "错误信息" }
         const data = await res.json();
-        // 把末尾的 "思考中..." 替换为真实回复
-        log.textContent = log.textContent.replace("AI: 思考中...", "AI: " + (data.reply || ("出错: " + data.error)));
+        // 把占位气泡的文字替换为真实回复
+        pending.textContent = data.reply || ("出错: " + data.error);
 
         // 5. AI 的回复也加入历史数组，下一轮 AI 才知道自己说过什么
         if (data.reply) messages.push({ role: "assistant", content: data.reply });
       } catch (e) {
         // 请求失败（最常见原因：server.js 没启动）
-        log.textContent = log.textContent.replace("AI: 思考中...", "AI: 请求失败，请确认 server.js 已启动\n");
+        pending.textContent = "请求失败，请确认 server.js 已启动";
       }
-      log.textContent += "\n"; // 空一行，分隔每轮对话
     }
 
     // 回车发送：输入框里按 Enter 等同于点"发送"按钮
     document.getElementById("input").addEventListener("keydown", (e) => {
       if (e.key === "Enter") send();
     });
+
+    /**
+     * 页面打开时自动加载历史聊天记录
+     * 从后端的 /history 接口读取 chat_log.json 的内容：
+     *   1. 把每条"我: / AI:"显示到对话区
+     *   2. 同时恢复到 messages 数组，AI 能接着之前的上下文继续聊
+     */
+    async function loadHistory() {
+      try {
+        const res = await fetch("http://localhost:3001/history");
+        const logs = await res.json();          // 格式：[{ time, user, assistant }, ...]
+        for (const item of logs) {
+          // 用气泡样式显示历史记录（item.time 是后端记录的对话时间）
+          addBubble("user", item.user, item.time);
+          addBubble("ai", item.assistant, item.time);
+          // 恢复对话上下文（用户一句 + AI 一句）
+          messages.push({ role: "user", content: item.user });
+          messages.push({ role: "assistant", content: item.assistant });
+        }
+      } catch (e) {
+        // 后端没启动时静默忽略，不影响正常使用
+      }
+    }
+    loadHistory(); // 页面脚本加载完就立刻执行
   </script>
 </body>
 

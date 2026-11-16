@@ -144,7 +144,21 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 情况 3：其他任何路径 → 返回 404 Not Found
+  // 情况 3：前端打开页面时请求历史记录（GET http://localhost:3001/history）
+  // 返回 chat_log.json 的完整内容，前端用来在页面上显示之前的对话
+  if (req.method === "GET" && req.url === "/history") {
+    let logs = [];
+    try {
+      logs = JSON.parse(fs.readFileSync(LOG_FILE, "utf-8")); // 读取并解析记录文件
+    } catch (e) {
+      logs = []; // 文件不存在（还没聊过）就返回空数组
+    }
+    res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify(logs));
+    return;
+  }
+
+  // 情况 4：其他任何路径 → 返回 404 Not Found
   res.writeHead(404);
   res.end("Not Found");
 });
