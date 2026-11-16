@@ -10,14 +10,15 @@
   <!-- 标题显示在浏览器标签页上 -->
 
 
+  
   <style>
     /* ---------- 页面样式 ---------- */
     body {
-      max-width: 800px;      /* 内容区最宽 800px，避免大屏上拉得太长 */
+      width: 800px;      /* 内容区最宽 800px，避免大屏上拉得太长 */
       margin: 30px auto;     /* 上下留 30px，水平居中 */
       font-family: sans-serif;
       color: #333;
-      background-color: beige;
+      background-color: rgb(251, 252, 249);
     }
 
     #log {
@@ -28,10 +29,10 @@
       border-radius: 4px;
       font-size: 14px;
       overflow-y: auto;           /* 内容超出高度时出现滚动条 */
-      height: 85vh;
+      height: 80vh;
       background-color: #ffffff;      
     }
-    
+
     /* ---------- 聊天气泡样式 ---------- */
     .msg {
       display: flex;
@@ -44,41 +45,53 @@
     }
     .bubble {
       max-width: 70%;             /* 气泡最宽 70%，超出自动换行 */
-      padding: 8px 12px;          /* 气泡内边距 */
-      border-radius: 10px;        /* 圆角，气泡感 */
+      padding: 8px 12px;          /* 气泡内边距 */  
       white-space: pre-wrap;      /* 保留换行和空格 */
       word-break: break-word;     /* 长单词/长链接强制换行 */
     }
     .msg.user .bubble {
-      background-color: #cce5ff;  /* 用户气泡：浅蓝色 */
-      color: #004085;             /* 深蓝色文字 */
+      background-color: #eef5e7;  /* 用户气泡：浅蓝色 */
+      color: #473b21;             /* 深蓝色文字 */ 
+      border-radius: 10px 10px 2px 10px;      /* 圆角，气泡感 */     
     }
     .msg.ai .bubble {
-      background-color: #f1f1f1;  /* AI 气泡：浅灰色 */
-      color: #333;
+      background-color: #f3f3f2;  /* AI 气泡：浅灰色 */
+      color: #4b4948;
+      border-radius: 10px 10px 10px 2px;      /* 圆角，气泡感 */
     }
     .time {
       font-size: 12px;            /* 时间小一号 */
       color: #999;                /* 灰色 */
-      margin-bottom: 3px;         /* 和下方气泡留一点距离 */
+      margin-bottom: 6px;         /* 和下方气泡留一点距离 */
+      margin-top: 6px;
+    }
+
+
+    /* 输入区：用 flex 让输入框和发送按钮同处一行，且底部对齐 */
+    #input-area {
+      display: flex;
+      align-items: flex-end;    /* 底部对齐 */
+      gap: 16px;                   /* 输入框与按钮之间的间距 */
     }
     #input {
       /* 输入框 */
-      width: 70%;       /* 占一行宽度的 70%，右边留给按钮 */
-      height: 30px;
-      padding: 0 16px;
+      flex: 1;                    /* 占满剩余宽度，右边留给按钮 */
+      padding: 16px;  
       border-radius: 4px;
       border: 1px solid #ccc; 
+      overflow-y: auto;           /* 内容超出高度时出现滚动条 */
+      min-height: 5vh;
+      box-sizing: border-box;     /* padding 计入宽度，避免撑破布局 */
     }
     button {
       /* 发送按钮 */
-      margin-left: 16px;  /* 和输入框之间留出间距 */
       height: 32px;
       padding: 0 16px;
       border-radius: 4px;
       color: #fdfdfd;
       border: 1px solid #0f76d6; 
-      background-color: rgb(77, 181, 241);
+      background-color: rgb(77, 181, 241);      
+      flex-shrink: 0;             /* 按钮不被压缩 */
     }
   </style>
 </head>                                      
@@ -89,17 +102,14 @@
     <!-- 对话记录显示区：对话会以气泡形式追加到这里 -->
   <div id="log"></div>
  <br>
-   <!-- 用户输入框：placeholder 是没输入内容时显示的灰色提示文字 -->
-  <input id="input" style="width: 70%" placeholder="输入内容...">
-
-  <!-- 发送按钮：点击时调用下方 script 里定义的 send() 函数 -->
-  <button onclick="send()">发送</button>
+   <!-- 用户输入框：textarea 支持多行输入，必须有闭合标签 </textarea> -->
+  <div id="input-area">
+    <!-- 用户输入框：textarea 支持多行输入，必须有闭合标签 </textarea> -->
+    <textarea id="input" placeholder="输入内容...（Enter 发送，Shift+Enter 换行）"></textarea>
+    <!-- 发送按钮：点击时调用下方 script 里定义的 send() 函数 -->
+    <button onclick="send()">发送</button>
+  </div>
  
-
- 
-
- 
-
 
 
   <script>
@@ -141,9 +151,9 @@
       bubble.className = "bubble";
       bubble.textContent = text;
 
-      // 时间在上、气泡在下（对齐方向由 CSS 的 align-items 控制）
-      row.appendChild(timeEl);
+      // 时间在上、气泡在下（对齐方向由 CSS 的 align-items 控制）    
       row.appendChild(bubble);
+      row.appendChild(timeEl);
 
       log.appendChild(row);
       log.scrollTop = log.scrollHeight; // 自动滚动到底部，看到最新消息
@@ -155,13 +165,13 @@
      * 由"发送"按钮的 onclick 和输入框的回车键触发
      */
     async function send() {
-      // 获取页面上的输入框
-      const input = document.getElementById("input");
+      // 获取页面上的输入框（textarea 支持多行输入）
+      const textarea = document.getElementById("input");
 
       // 取出输入内容并去掉首尾空格
-      const text = input.value.trim();
-      if (!text) return;      // 空内容直接返回，不发请求
-      input.value = "";       // 清空输入框，方便继续输入
+      const text = textarea.value.trim();
+      if (!text) return;        // 空内容直接返回，不发请求
+      textarea.value = "";      // 清空输入框，方便继续输入
 
       // 1. 把用户的话以"蓝色右对齐气泡 + 时间"显示，并加入历史数组
       addBubble("user", text, nowTime());
@@ -193,9 +203,12 @@
       }
     }
 
-    // 回车发送：输入框里按 Enter 等同于点"发送"按钮
+    // 快捷键发送：Enter 发送消息，Shift+Enter 换行（textarea 多行输入必备）
     document.getElementById("input").addEventListener("keydown", (e) => {
-      if (e.key === "Enter") send();
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault(); // 阻止 Enter 默认的换行行为
+        send();
+      }
     });
 
     /**
